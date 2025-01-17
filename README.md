@@ -1,0 +1,1 @@
+# Deriv_Copy_Trader
