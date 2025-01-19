@@ -70,6 +70,14 @@ class DerivMT5CopyTradingBot:
     def select_mt5_account(self, accounts, target_account_number=None, is_source=True):
         """
         Select an MT5 account based on specified criteria.
+        
+        Args:
+            accounts (list): List of MT5 account dictionaries
+            target_account_number (str, optional): Specific account number to match (with or without MT* prefix)
+            is_source (bool): Whether this is for source account selection
+        
+        Returns:
+            str: Selected account login or None if no suitable account found
         """
         account_type = "source" if is_source else "destination"
         
@@ -77,21 +85,43 @@ class DerivMT5CopyTradingBot:
             logger.error(f"No MT5 accounts found for {account_type}")
             return None
 
-        for account in accounts:
-            account_login = str(account.get("login"))
-            
-            # If a specific account number is provided, match it exactly
-            if target_account_number:
-                if account_login == str(target_account_number):
-                    logger.info(f"Found matching {account_type} MT5 account: {account_login}")
+        logger.info(f"Selecting {account_type} account. Target number: {target_account_number}")
+        
+        # First try: Look for exact account number match
+        if target_account_number:
+            target_number = str(target_account_number)
+            for account in accounts:
+                account_login = str(account.get("login", ""))
+                
+                # Try matching with and without the MT* prefix
+                if (account_login == target_number or                  # Exact match
+                    account_login == f"MTD{target_number}" or         # Demo account prefix
+                    account_login == f"MTR{target_number}" or         # Real account prefix
+                    account_login.endswith(target_number)):           # Match end of number
+                    
+                    logger.info(f"Found exact matching {account_type} MT5 account: {account_login} "
+                            f"(Type: {account.get('account_type')}, Group: {account.get('group')})")
                     return account_login
-            # Otherwise, fall back to selecting the first standard account
-            elif account.get("account_type") == "real" and "standard" in account.get("group", "").lower():
-                logger.info(f"Selected default {account_type} MT5 standard account: {account_login}")
+                    
+            logger.error(f"Specified {account_type} account {target_number} not found in available accounts: "
+                        f"{[acc.get('login') for acc in accounts]}")
+            return None
+        
+        # Second try: Look for any enabled account with appropriate type
+        for account in accounts:
+            # Check if account is enabled and not trade disabled
+            rights = account.get("rights", {})
+            if rights.get("enabled", False) and not rights.get("trade_disabled", True):
+                account_login = str(account.get("login"))
+                logger.info(f"Selected {account_type} MT5 account: {account_login} "
+                        f"(Type: {account.get('account_type')}, "
+                        f"Group: {account.get('group')})")
                 return account_login
-
+        
         logger.error(f"No suitable {account_type} MT5 account found!")
         return None
+
+    
 
     def _run_websocket(self, ws, name):
         """Run WebSocket connection with automatic reconnection."""
@@ -337,10 +367,10 @@ class DerivMT5CopyTradingBot:
 def main():
     # Initialize and start the copy trading bot
     bot = DerivMT5CopyTradingBot(
-        source_token="YOUR_SOURCE_TOKEN",
-        destination_token="YOUR_DESTINATION_TOKEN",
-        source_account_number="YOUR_SOURCE_MT5_ACCOUNT",  # Replace with your source MT5 account number
-        destination_account_number="YOUR_DEST_MT5_ACCOUNT"  # Replace with your destination MT5 account number
+        source_token="D4mOMe2m0UB5h2o",
+        destination_token="W9LpYCwJNwuFKqY",
+        source_account_number="31782142",  # Replace with your source MT5 account number
+        destination_account_number="5677747"  # Replace with your destination MT5 account number
     )
     
     try:
